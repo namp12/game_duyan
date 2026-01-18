@@ -64,3 +64,38 @@ def format_time(ms):
     minutes = total_seconds // 60
     seconds = total_seconds % 60
     return f"{minutes:02d}:{seconds:02d}"
+
+# ==================== LEVEL PROGRESS PERSISTENCE ====================
+PROGRESS_FILE = "level_progress.txt"
+
+def save_level_progress(max_level):
+    """
+    Save max level reached to file
+    
+    Args:
+        max_level: Highest level unlocked (1-9)
+    """
+    try:
+        with open(PROGRESS_FILE, 'w', encoding='utf-8') as f:
+            f.write(str(max_level))
+        print(f"✓ Saved progress: Level {max_level} unlocked")
+    except Exception as e:
+        print(f"✗ Error saving progress: {e}")
+
+def load_level_progress():
+    """
+    Load max level reached from file
+    
+    Returns:
+        int: Highest level unlocked (default: 1)
+    """
+    if os.path.exists(PROGRESS_FILE):
+        try:
+            with open(PROGRESS_FILE, 'r', encoding='utf-8') as f:
+                max_level = int(f.read().strip())
+                print(f"✓ Loaded progress: Level {max_level} unlocked")
+                return max_level
+        except Exception as e:
+            print(f"✗ Error loading progress: {e}")
+            return 1
+    return 1  # Default: only level 1 unlocked

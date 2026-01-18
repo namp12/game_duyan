@@ -1,9 +1,32 @@
 # ui_menus.py - New menu screens for main menu, level select, and leaderboard
 
 import pygame
+import os
 from settings import *
 from utils import draw_text
 from score import format_time, get_high_score_for_level, load_high_scores
+
+# Load menu background once
+_menu_bg = None
+
+def _get_menu_background():
+    """Load and cache menu background image"""
+    global _menu_bg
+    if _menu_bg is None:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        bg_path = os.path.join(script_dir, "assets", "menu_bg.png")
+        if os.path.exists(bg_path):
+            try:
+                _menu_bg = pygame.image.load(bg_path).convert()
+                _menu_bg = pygame.transform.scale(_menu_bg, (TOTAL_SCREEN_WIDTH, TOTAL_SCREEN_HEIGHT))
+                print("✓ Đã tải hình nền menu")
+            except Exception as e:
+                print(f"✗ Lỗi load menu_bg.png: {e}")
+                _menu_bg = False  # Mark as failed
+        else:
+            print(f"✗ Không tìm thấy: {bg_path}")
+            _menu_bg = False
+    return _menu_bg if _menu_bg else None
 
 def draw_main_menu_screen(screen, font_menu, font_title, font_body, mouse_pos):
     """
@@ -14,15 +37,22 @@ def draw_main_menu_screen(screen, font_menu, font_title, font_body, mouse_pos):
     
     Returns: dict of button rects
     """
-    # Background
-    screen.fill((20, 40, 60))
-    
-    # Gradient overlay
-    for i in range(TOTAL_SCREEN_HEIGHT):
-        alpha = int(100 + (i / TOTAL_SCREEN_HEIGHT) * 100)
-        surf = pygame.Surface((TOTAL_SCREEN_WIDTH, 1), pygame.SRCALPHA)
-        surf.fill((0, 20, 40, alpha))
-        screen.blit(surf, (0, i))
+    # Background - try to use image, fallback to solid color
+    bg = _get_menu_background()
+    if bg:
+        screen.blit(bg, (0, 0))
+        # Add semi-transparent overlay for better text visibility
+        overlay = pygame.Surface((TOTAL_SCREEN_WIDTH, TOTAL_SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 100))
+        screen.blit(overlay, (0, 0))
+    else:
+        screen.fill((20, 40, 60))
+        # Gradient overlay
+        for i in range(TOTAL_SCREEN_HEIGHT):
+            alpha = int(100 + (i / TOTAL_SCREEN_HEIGHT) * 100)
+            surf = pygame.Surface((TOTAL_SCREEN_WIDTH, 1), pygame.SRCALPHA)
+            surf.fill((0, 20, 40, alpha))
+            screen.blit(surf, (0, i))
     
     # Title
     draw_text(screen, "ĐẢO HOANG SINH TỒN", TOTAL_SCREEN_WIDTH // 2, 80, 
@@ -69,8 +99,15 @@ def draw_level_select_screen(screen, font_menu, font_title, font_body, mouse_pos
     screen.fill((20, 40, 60))
     
     # Title
-    draw_text(screen, "CHỌN MÀN CHƠI", TOTAL_SCREEN_WIDTH // 2, 50,
+    draw_text(screen, "CHỌN MÀN CHƠI", TOTAL_SCREEN_WIDTH // 2, 40,
              font_menu, (255, 215, 0), center=True)
+    
+    # Progress indicator
+    completed_count = sum(1 for lvl in range(1, 10) if get_high_score_for_level(lvl) > 0)
+    unlocked_count = level_manager.max_level_reached
+    progress_text = f"Đã mở: {unlocked_count}/9 | Hoàn thành: {completed_count}/9"
+    draw_text(screen, progress_text, TOTAL_SCREEN_WIDTH // 2, 90,
+             font_body, (150, 200, 150), center=True)
     
     # Level grid (3x3 for 9 levels)
     levels_per_row = 3
@@ -196,44 +233,79 @@ def _draw_menu_button(screen, btn_rect, mouse_pos, text, font, normal_color, hov
              (255, 255, 255), center=True)
 
 def _draw_level_button(screen, btn_rect, mouse_pos, level_num, is_unlocked, high_score, font_title, font_body):
-    """Helper to draw a level selection button"""
+    """Helper to draw a level selection button with improved visuals"""
     is_hover = btn_rect.collidepoint(mouse_pos) and is_unlocked
+    has_completed = high_score > 0
     
     if is_unlocked:
         # Unlocked level
-        bg_color = (0, 150, 100) if is_hover else (0, 100, 70)
-        border_color = (0, 255, 150) if is_hover else (0, 200, 120)
+        if has_completed:
+            # Completed - GREEN with glow + checkmark
+            bg_color = (0, 120, 60) if is_hover else (0, 100, 50)
+            border_color = (0, 255, 100)
+            text_color = (255, 255, 255)
+            
+            # Green glow effect
+            for i in range(5, 0, -1):
+                glow_rect = btn_rect.inflate(i*4, i*4)
+                glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                alpha = 30 - i * 5
+                pygame.draw.rect(glow_surf, (0, 255, 100, alpha), (0, 0, glow_rect.width, glow_rect.height), border_radius=15)
+                screen.blit(glow_surf, (glow_rect.x, glow_rect.y))
+        else:
+            # Unlocked but not completed - GOLD
+            bg_color = (160, 130, 0) if is_hover else (140, 110, 0)
+            border_color = (255, 215, 0)
+            text_color = (255, 255, 255)
         
-        # Background
+        # Background with gradient
         pygame.draw.rect(screen, bg_color, btn_rect, border_radius=15)
+        
+        # Bright border
         pygame.draw.rect(screen, border_color, btn_rect, 3, border_radius=15)
         
-        # Level number
-        draw_text(screen, str(level_num), btn_rect.centerx, btn_rect.centery - 30,
-                 font_title, (255, 255, 255), center=True)
+        # Level number - larger
+        level_font = pygame.font.SysFont('Segoe UI', 48, bold=True)
+        num_text = level_font.render(str(level_num), True, text_color)
+        num_rect = num_text.get_rect(center=(btn_rect.centerx, btn_rect.centery - 35))
+        screen.blit(num_text, num_rect)
         
         # Level name
-        level_text = f"Level {level_num}"
-        draw_text(screen, level_text, btn_rect.centerx, btn_rect.centery + 10,
-                 font_body, (200, 200, 200), center=True)
+        level_name = f"Level {level_num}"
+        draw_text(screen, level_name, btn_rect.centerx, btn_rect.centery + 5,
+                 font_body, (220, 220, 220), center=True)
         
-        # High score
-        if high_score > 0:
+        # High score or checkmark
+        if has_completed:
+            # Checkmark
+            check_font = pygame.font.SysFont('Segoe UI', 32)
+            check_text = check_font.render("✓", True, (0, 255, 100))
+            check_rect = check_text.get_rect(topright=(btn_rect.right - 10, btn_rect.top + 10))
+            screen.blit(check_text, check_rect)
+            
+            # Time at bottom
             score_text = format_time(high_score)
             draw_text(screen, score_text, btn_rect.centerx, btn_rect.centery + 40,
                      font_body, (255, 215, 0), center=True)
+        else:
+            # "NEW" or "PLAY" indicator
+            play_text = "➤ PLAY" if is_hover else "NEW"
+            draw_text(screen, play_text, btn_rect.centerx, btn_rect.centery + 40,
+                     font_body, (255, 215, 0), center=True)
     else:
-        # Locked level
+        # Locked level - GRAY
         bg_color = (50, 50, 50)
         
         # Background
         pygame.draw.rect(screen, bg_color, btn_rect, border_radius=15)
         pygame.draw.rect(screen, (100, 100, 100), btn_rect, 2, border_radius=15)
         
-        # Lock icon (text)
-        draw_text(screen, "🔒", btn_rect.centerx, btn_rect.centery - 10,
-                 font_title, (150, 150, 150), center=True)
+        # Lock icon (larger)
+        lock_font = pygame.font.SysFont('Segoe UI', 56)
+        lock_text = lock_font.render("🔒", True, (150, 150, 150))
+        lock_rect = lock_text.get_rect(center=(btn_rect.centerx, btn_rect.centery - 15))
+        screen.blit(lock_text, lock_rect)
         
-        # Level number
-        draw_text(screen, str(level_num), btn_rect.centerx, btn_rect.centery + 30,
+        # Level number below lock
+        draw_text(screen, str(level_num), btn_rect.centerx, btn_rect.centery + 45,
                  font_body, (100, 100, 100), center=True)

@@ -1,6 +1,7 @@
 """
 Helper System - Sử dụng BFS và DFS để hỗ trợ người chơi
 """
+import pygame
 from collections import deque
 from settings import *
 
@@ -282,3 +283,107 @@ class PathHelper:
     def get_danger_tiles(self):
         """Trả về các ô nguy hiểm (để vẽ cảnh báo)"""
         return self.danger_tiles
+    
+    # ==================== PUBLIC API (Called from main.py) ====================
+    def find_path_to_piece(self, map_data, player_pos, rescue_system, player, game_log):
+        """
+        Wrapper cho activate_piece_finder - Phím 1
+        Tìm đường đến mảnh ghép gần nhất bằng BFS
+        """
+        game_time = pygame.time.get_ticks()
+        piece_positions = rescue_system.piece_positions
+        self.activate_piece_finder(player, map_data, piece_positions, game_time, game_log)
+    
+    def find_escape_route(self, map_data, player_pos, fire_system, player, game_log):
+        """
+        Wrapper cho activate_escape_finder - Phím 2
+        Tìm lối thoát hiểm bằng BFS
+        """
+        game_time = pygame.time.get_ticks()
+        fire_tiles = fire_system.fire_tiles
+        self.activate_escape_finder(player, map_data, fire_tiles, game_time, game_log)
+    
+    def find_path_to_boat(self, map_data, player_pos, rescue_system, player, game_log):
+        """
+        Phím 3 - Tìm đường đến thuyền cứu hộ bằng BFS
+        """
+        if not rescue_system.boat_arrived:
+            game_log.append("Thuyền chưa đến! Hãy thu thập mảnh ghép trước.")
+            if len(game_log) > 10:
+                game_log.pop(0)
+            return
+        
+        if not rescue_system.boat_position:
+            game_log.append("Không tìm thấy vị trí thuyền!")
+            if len(game_log) > 10:
+                game_log.pop(0)
+            return
+        
+        # Sử dụng BFS tìm đường đến thuyền
+        from collections import deque
+        
+        start_col, start_row = player_pos
+        target_col, target_row = rescue_system.boat_position
+        
+        queue = deque([(start_col, start_row, [])])
+        visited = set()
+        visited.add((start_col, start_row))
+        
+        boat_path = []
+        
+        while queue:
+            col, row, path = queue.popleft()
+            
+            # Đã đến thuyền
+            if (col, row) == (target_col, target_row):
+                boat_path = path
+                break
+            
+            # Duyệt 4 hướng
+            for dx, dy in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
+                nx, ny = col + dx, row + dy
+                
+                if 0 <= nx < MAP_WIDTH and 0 <= ny < MAP_HEIGHT:
+                    if (nx, ny) not in visited:
+                        tile = map_data[ny][nx]
+                        # Có thể đi qua
+                        if tile not in [TILE_WATER, TILE_TREE, TILE_FIRE, TILE_ROCK]:
+                            visited.add((nx, ny))
+                            new_path = path + [(nx, ny)]
+                            queue.append((nx, ny, new_path))
+        
+        if boat_path:
+            # Hiển thị đường đi đến thuyền (dùng escape_path để hiển thị)
+            self.escape_path = boat_path
+            self.escape_path_visible = True
+            self.escape_path_time = pygame.time.get_ticks()
+            game_log.append(f"[BFS] Đường đến thuyền: {len(boat_path)} bước")
+        else:
+            game_log.append("Không tìm được đường đến thuyền!")
+        
+        if len(game_log) > 10:
+            game_log.pop(0)
+    
+    def predict_fire_spread(self, map_data, fire_system, player, game_log):
+        """
+        Wrapper cho predict_fire_spread_bfs - Phím 4
+        Dự đoán vùng lửa sắp lan tới
+        """
+        fire_tiles = fire_system.fire_tiles
+        
+        if not fire_tiles:
+            game_log.append("Chưa có lửa để dự đoán!")
+            if len(game_log) > 10:
+                game_log.pop(0)
+            return
+        
+        self.predict_fire_spread_bfs(fire_tiles, map_data, depth=2)
+        
+        danger_count = len(self.danger_tiles)
+        if danger_count > 0:
+            game_log.append(f"[BFS] Cảnh báo: {danger_count} ô sắp cháy!")
+        else:
+            game_log.append("An toàn! Chưa có nguy cơ lửa lan.")
+        
+        if len(game_log) > 10:
+            game_log.pop(0)

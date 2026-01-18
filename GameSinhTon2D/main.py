@@ -41,7 +41,7 @@ def main():
     
     # Sound System
     sound_system = SoundSystem()
-    sound_system.play_bgm()  # Phát nhạc nền
+    sound_system.play_menu_bgm()  # Phát nhạc nền menu (1.mp3)
     
     # Level Manager
     level_manager = LevelManager()
@@ -86,7 +86,7 @@ def main():
     ui_manager = UI(screen_total)
     
     # Game State
-    current_state = GAME_STATE_MENU
+    current_state = GAME_STATE_MAIN_MENU
     game_log = ["- Sẵn sàng...", "- Bấm nút để chơi."]
     
     # Survival Timer
@@ -97,6 +97,7 @@ def main():
     main_menu_buttons = {}
     level_select_buttons = {}
     leaderboard_buttons = {}
+    volume_buttons = {}  # Volume control buttons
     
     # Turtle enemies (Level 2)
     turtles = []
@@ -128,6 +129,142 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                # Handle Main Menu clicks
+                if current_state == GAME_STATE_MAIN_MENU:
+                    if 'campaign' in main_menu_buttons and main_menu_buttons['campaign'].collidepoint(mouse_pos):
+                        # Start campaign - Level 1
+                        level_manager.current_level = 1
+                        map_data, player, fire_system, rescue_system, path_helper = start_new_level()
+                        turtles = spawn_turtles(map_data, level_manager.current_level)
+                        game_start_time = pygame.time.get_ticks()
+                        current_state = GAME_STATE_PLAYING
+                        sound_system.play_game_bgm()  # Chuyển sang nhạc gameplay
+                        game_log = ["- Bắt đầu Level 1!", "- Tìm 4 mảnh ghép để thoát đảo."]
+                    elif 'level_select' in main_menu_buttons and main_menu_buttons['level_select'].collidepoint(mouse_pos):
+                        current_state = GAME_STATE_LEVEL_SELECT
+                        # Duy trì nhạc menu
+                    elif 'leaderboard' in main_menu_buttons and main_menu_buttons['leaderboard'].collidepoint(mouse_pos):
+                        current_state = GAME_STATE_LEADERBOARD
+                        # Duy trì nhạc menu
+                
+                # Handle Level Select clicks
+                elif current_state == GAME_STATE_LEVEL_SELECT:
+                    if 'back' in level_select_buttons and level_select_buttons['back'].collidepoint(mouse_pos):
+                        current_state = GAME_STATE_MAIN_MENU
+                        # Duy trì nhạc menu
+                    elif 'levels' in level_select_buttons:
+                        for level_num, btn_rect in level_select_buttons['levels'].items():
+                            if btn_rect.collidepoint(mouse_pos):
+                                level_manager.current_level = level_num
+                                map_data, player, fire_system, rescue_system, path_helper = start_new_level()
+                                turtles = spawn_turtles(map_data, level_manager.current_level)
+                                game_start_time = pygame.time.get_ticks()
+                                current_state = GAME_STATE_PLAYING
+                                sound_system.play_game_bgm()  # Chuyển sang nhạc gameplay
+                                game_log = [f"- Bắt đầu Level {level_num}!", "- Tìm mảnh ghép để thoát đảo."]
+                                break
+                
+                # Handle Leaderboard clicks
+                elif current_state == GAME_STATE_LEADERBOARD:
+                    if 'back' in leaderboard_buttons and leaderboard_buttons['back'].collidepoint(mouse_pos):
+                        current_state = GAME_STATE_MAIN_MENU
+                        # Duy trì nhạc menu
+                
+                # Handle Game Over clicks
+                elif current_state == GAME_STATE_GAMEOVER:
+                    if retry_btn.collidepoint(mouse_pos):
+                        # Retry current level
+                        map_data, player, fire_system, rescue_system, path_helper = start_new_level()
+                        turtles = spawn_turtles(map_data, level_manager.current_level)
+                        game_start_time = pygame.time.get_ticks()
+                        current_state = GAME_STATE_PLAYING
+                        sound_system.play_game_bgm()  # Chuyển sang nhạc gameplay
+                        game_log = ["- Chơi lại!", "- Cố gắng lên!"]
+                    elif home_btn.collidepoint(mouse_pos):
+                        current_state = GAME_STATE_MAIN_MENU
+                        sound_system.play_menu_bgm()  # Chuyển về nhạc menu
+                
+                # Handle Win Screen clicks
+                elif current_state == GAME_STATE_WIN:
+                    if win_next_btn.collidepoint(mouse_pos):
+                        # Unlock next level if this is the highest reached
+                        if level_manager.current_level >= level_manager.max_level_reached:
+                            level_manager.max_level_reached = level_manager.current_level + 1
+                            # Save progress
+                            from score import save_level_progress
+                            save_level_progress(level_manager.max_level_reached)
+                            game_log.append(f"🎉 Level {level_manager.max_level_reached} unlocked!")
+                        
+                        # Move to next level
+                        level_manager.current_level += 1
+                        if level_manager.current_level > 9:
+                            level_manager.current_level = 9
+                        map_data, player, fire_system, rescue_system, path_helper = start_new_level()
+                        turtles = spawn_turtles(map_data, level_manager.current_level)
+                        game_start_time = pygame.time.get_ticks()
+                        current_state = GAME_STATE_PLAYING
+                        sound_system.play_game_bgm()  # Chuyển sang nhạc gameplay
+                        game_log = [f"- Level {level_manager.current_level}!", "- Tiếp tục nào!"]
+                    elif win_retry_btn.collidepoint(mouse_pos):
+                        # Replay current level
+                        map_data, player, fire_system, rescue_system, path_helper = start_new_level()
+                        turtles = spawn_turtles(map_data, level_manager.current_level)
+                        game_start_time = pygame.time.get_ticks()
+                        current_state = GAME_STATE_PLAYING
+                        sound_system.play_game_bgm()  # Chuyển sang nhạc gameplay
+                        game_log = ["- Chơi lại!", "- Cải thiện kỷ lục!"]
+                    elif win_home_btn.collidepoint(mouse_pos):
+                        current_state = GAME_STATE_MAIN_MENU
+                        sound_system.play_menu_bgm()  # Chuyển về nhạc menu
+                
+                # Handle Volume Button clicks during PLAYING state
+                elif current_state == GAME_STATE_PLAYING:
+                    if 'down' in volume_buttons and volume_buttons['down'].collidepoint(mouse_pos):
+                        # Decrease volume by 10%
+                        sound_system.adjust_volume(-0.1)
+                    elif 'up' in volume_buttons and volume_buttons['up'].collidepoint(mouse_pos):
+                        # Increase volume by 10%
+                        sound_system.adjust_volume(0.1)
+            
+            # Handle keyboard input for gameplay
+            elif event.type == pygame.KEYDOWN and current_state == GAME_STATE_PLAYING:
+                dx, dy = 0, 0
+                if event.key == pygame.K_LEFT or event.key == pygame.K_a:
+                    dx = -1
+                elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
+                    dx = 1
+                elif event.key == pygame.K_UP or event.key == pygame.K_w:
+                    dy = -1
+                elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
+                    dy = 1
+                
+                if dx != 0 or dy != 0:
+                    player.move(dx, dy, map_data, game_log, sprint=False, jump=False, sound_system=sound_system, fire_system=fire_system)
+                
+                # Helper keys - Số và chữ cái
+                if event.key == pygame.K_1 or event.key == pygame.K_h:
+                    path_helper.find_path_to_piece(map_data, (player.grid_x, player.grid_y), rescue_system, player, game_log)
+                elif event.key == pygame.K_2 or event.key == pygame.K_e:
+                    path_helper.find_escape_route(map_data, (player.grid_x, player.grid_y), fire_system, player, game_log)
+                elif event.key == pygame.K_3:
+                    path_helper.find_path_to_boat(map_data, (player.grid_x, player.grid_y), rescue_system, player, game_log)
+                elif event.key == pygame.K_4:
+                    path_helper.predict_fire_spread(map_data, fire_system, player, game_log)
+                
+                # Lên thuyền - SPACE key
+                elif event.key == pygame.K_SPACE:
+                    if rescue_system.can_board:
+                        if rescue_system.board_boat():
+                            current_state = GAME_STATE_WIN
+                            game_log.append("THẮNG! Bạn đã thoát đảo!")
+                            if len(game_log) > 10:
+                                game_log.pop(0)
+                    elif rescue_system.near_boat:
+                        game_log.append("Đứng gần thuyền thêm chút nữa...")
+                        if len(game_log) > 10:
+                            game_log.pop(0)
             
         # --- UPDATE & RENDER ---
         if current_state == GAME_STATE_MAIN_MENU:
@@ -217,9 +354,9 @@ def main():
                         if len(game_log) > 10:
                             game_log.pop(0)
             
-            ui_manager.draw_game_screen(
+            volume_buttons = ui_manager.draw_game_screen(
                 player, map_data, camera_x, camera_y, 
-                game_assets, game_log, (font_title, font_body), game_time, fire_system, level_manager, rain_system, rescue_system
+                game_assets, game_log, (font_title, font_body), game_time, fire_system, level_manager, rain_system, rescue_system, sound_system
             )
             
             # Vẽ đường đi helper (DFS/BFS)

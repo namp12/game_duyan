@@ -34,7 +34,8 @@ class SoundSystem:
             os.makedirs(self.sounds_dir)
             print(f"⚠️ Tạo thư mục sounds: {self.sounds_dir}")
             print("⚠️ Thêm file .mp3/.wav vào thư mục này:")
-            print("   - bgm.mp3 (nhạc nền)")
+            print("   - 1.mp3 (nhạc nền menu)")
+            print("   - 2.mp3 (nhạc nền trong game)")
             print("   - pickup.wav (nhặt vật phẩm)")
             print("   - attack.wav (tấn công)")
             print("   - damage.wav (nhận sát thương)")
@@ -63,24 +64,53 @@ class SoundSystem:
             except Exception as e:
                 print(f"✗ Lỗi load sound {filename}: {e}")
     
-    def play_bgm(self, loop=True):
-        """Phát nhạc nền"""
-        if self.is_music_playing:
-            return
+    def play_menu_bgm(self, loop=True):
+        """Phát nhạc nền menu (1.mp3)"""
+        menu_bgm_path = os.path.join(self.sounds_dir, "1.mp3")
         
-        bgm_path = os.path.join(self.sounds_dir, "bgm.mp3")
-        
-        if os.path.exists(bgm_path):
+        if os.path.exists(menu_bgm_path):
             try:
-                pygame.mixer.music.load(bgm_path)
+                # Dừng nhạc hiện tại nếu đang phát
+                pygame.mixer.music.stop()
+                
+                # Load và phát nhạc menu
+                pygame.mixer.music.load(menu_bgm_path)
                 pygame.mixer.music.set_volume(self.music_volume)
                 pygame.mixer.music.play(-1 if loop else 0)
                 self.is_music_playing = True
-                print("🎵 Phát nhạc nền")
+                print("🎵 Phát nhạc menu (1.mp3)")
             except Exception as e:
-                print(f"✗ Lỗi phát nhạc nền: {e}")
+                print(f"✗ Lỗi phát nhạc menu: {e}")
         else:
-            print(f"⚠️ Không tìm thấy bgm.mp3 tại {bgm_path}")
+            print(f"⚠️ Không tìm thấy 1.mp3 tại {menu_bgm_path}")
+    
+    def play_game_bgm(self, loop=True):
+        """Phát nhạc nền gameplay (2.mp3)"""
+        game_bgm_path = os.path.join(self.sounds_dir, "2.mp3")
+        
+        if os.path.exists(game_bgm_path):
+            try:
+                # Dừng nhạc hiện tại nếu đang phát
+                pygame.mixer.music.stop()
+                
+                # Load và phát nhạc game
+                pygame.mixer.music.load(game_bgm_path)
+                pygame.mixer.music.set_volume(self.music_volume)
+                pygame.mixer.music.play(-1 if loop else 0)
+                self.is_music_playing = True
+                print("🎵 Phát nhạc gameplay (2.mp3)")
+            except Exception as e:
+                print(f"✗ Lỗi phát nhạc gameplay: {e}")
+        else:
+            print(f"⚠️ Không tìm thấy 2.mp3 tại {game_bgm_path}")
+    
+    def play_bgm(self, loop=True):
+        """
+        [DEPRECATED] Phát nhạc nền chung
+        Sử dụng play_menu_bgm() hoặc play_game_bgm() thay thế
+        """
+        # Mặc định phát menu BGM
+        self.play_menu_bgm(loop)
     
     def stop_bgm(self):
         """Dừng nhạc nền"""
@@ -110,6 +140,20 @@ class SoundSystem:
         self.sfx_volume = max(0.0, min(1.0, volume))
         for sound in self.sounds.values():
             sound.set_volume(self.sfx_volume)
+    
+    def adjust_volume(self, delta):
+        """
+        Điều chỉnh volume nhạc nền theo giá trị delta
+        
+        Args:
+            delta: Giá trị thay đổi (-1.0 đến 1.0), ví dụ: 0.1 để tăng 10%
+        """
+        new_volume = self.music_volume + delta
+        self.set_music_volume(new_volume)
+    
+    def get_music_volume(self):
+        """Lấy mức âm lượng nhạc nền hiện tại (0.0 - 1.0)"""
+        return self.music_volume
     
     def toggle_music(self):
         """Bật/tắt nhạc nền"""

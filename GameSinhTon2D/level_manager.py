@@ -2,11 +2,13 @@
 Level Manager - Quản lý màn chơi và độ khó
 """
 from settings import *
+from score import load_level_progress, save_level_progress
 
 class LevelManager:
     def __init__(self):
         self.current_level = 1
-        self.max_level_reached = 1
+        self.max_level_reached = load_level_progress()  # Load from file
+        print(f"🎮 Level Manager initialized: Level {self.max_level_reached} unlocked")
         
     def get_level_config(self):
         """
@@ -108,3 +110,17 @@ class LevelManager:
     def get_progress_text(self):
         """Trả về text hiển thị tiến độ"""
         return f"Level {self.current_level} | Best: {self.max_level_reached}"
+    
+    def is_level_unlocked(self, level_num):
+        """
+        Kiểm tra xem level có được mở khóa chưa
+        
+        Args:
+            level_num: Số level cần kiểm tra
+            
+        Returns:
+            bool: True nếu level đã mở khóa
+        """
+        # Level 1 luôn mở khóa
+        # Các level khác mở khóa khi đã hoàn thành level trước đó
+        return level_num <= self.max_level_reached

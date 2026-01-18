@@ -54,9 +54,12 @@ class UI:
         pygame.draw.rect(self.screen, (255,255,255), start_button_rect, 2, border_radius=10)
         draw_text(self.screen, "BẮT ĐẦU", start_button_rect.centerx, start_button_rect.centery, font_title, COLOR_BTN_TEXT, center=True)
 
-    def draw_game_screen(self, player, map_data, camera_x, camera_y, game_assets, game_log, fonts, game_time, fire_system=None, level_manager=None, rain_system=None, rescue_system=None):
+    def draw_game_screen(self, player, map_data, camera_x, camera_y, game_assets, game_log, fonts, game_time, fire_system=None, level_manager=None, rain_system=None, rescue_system=None, sound_system=None):
         # fonts = (font_title, font_body)
         font_title, font_body = fonts
+        
+        # Initialize volume buttons dict
+        volume_buttons = {}
 
         # 1. Clear Screen
         self.screen.fill(COLOR_BG_SIDEBAR)
@@ -409,6 +412,57 @@ class UI:
             # Text centered in panel
             draw_text(self.screen, level_text, level_panel_x + level_panel_w//2, level_panel_y + 20, 
                      font_body, level_color, center=True)
+            
+            y_pos += 50  # Space after level panel
+        
+        # VOLUME CONTROLS - New panel
+        if sound_system:
+            volume_panel_w = SIDEBAR_WIDTH - 20
+            volume_panel_h = 60
+            volume_panel_x = 10
+            volume_panel_y = y_pos if level_manager else 460
+            
+            # Panel background with gradient
+            volume_surf = pygame.Surface((volume_panel_w, volume_panel_h), pygame.SRCALPHA)
+            for i in range(volume_panel_h):
+                progress = i / volume_panel_h
+                alpha = int(180 - progress * 40)
+                volume_surf.fill((40, 40, 60, alpha), (0, i, volume_panel_w, 1))
+            
+            # Border
+            pygame.draw.rect(volume_surf, (100, 150, 200), (0, 0, volume_panel_w, volume_panel_h), 3, border_radius=10)
+            pygame.draw.rect(volume_surf, (150, 200, 255, 80), (0, 0, volume_panel_w, volume_panel_h), 1, border_radius=10)
+            self.screen.blit(volume_surf, (volume_panel_x, volume_panel_y))
+            
+            # Volume icon (speaker)
+            draw_text(self.screen, "🔊", volume_panel_x + 15, volume_panel_y + 15, font_body, (200, 200, 255))
+            
+            # Volume percentage
+            current_volume = sound_system.get_music_volume()
+            volume_percent = int(current_volume * 100)
+            volume_text = f"{volume_percent}%"
+            draw_text(self.screen, volume_text, volume_panel_x + volume_panel_w//2, volume_panel_y + 18, 
+                     font_body, (255, 255, 255), center=True)
+            
+            # Volume buttons
+            btn_size = 35
+            btn_y = volume_panel_y + volume_panel_h - btn_size - 5
+            
+            # [-] button (left)
+            vol_down_btn = pygame.Rect(volume_panel_x + 15, btn_y, btn_size, btn_size)
+            pygame.draw.rect(self.screen, (180, 50, 50), vol_down_btn, border_radius=5)
+            pygame.draw.rect(self.screen, (255, 100, 100), vol_down_btn, 2, border_radius=5)
+            draw_text(self.screen, "-", vol_down_btn.centerx, vol_down_btn.centery, font_title, (255, 255, 255), center=True)
+            
+            # [+] button (right)
+            vol_up_btn = pygame.Rect(volume_panel_x + volume_panel_w - btn_size - 15, btn_y, btn_size, btn_size)
+            pygame.draw.rect(self.screen, (50, 180, 50), vol_up_btn, border_radius=5)
+            pygame.draw.rect(self.screen, (100, 255, 100), vol_up_btn, 2, border_radius=5)
+            draw_text(self.screen, "+", vol_up_btn.centerx, vol_up_btn.centery, font_title, (255, 255, 255), center=True)
+            
+            # Store button rects for click detection
+            volume_buttons['down'] = vol_down_btn
+            volume_buttons['up'] = vol_up_btn
         # Level indicator removed from viewport (now in sidebar)
             
         # Sidebar Right (Log) - Enhanced gradient
@@ -444,6 +498,9 @@ class UI:
             
             draw_text(self.screen, log, self.rect_right.x+20, y_pos, font_body, color)
             y_pos += 25
+
+        # Return volume buttons for click handling
+        return volume_buttons
 
 
     def draw_minimap(self, map_data, player):
